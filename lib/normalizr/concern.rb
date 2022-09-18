@@ -7,19 +7,22 @@ module Normalizr
     module ClassMethods
       def normalize(*args, &block)
         options = Normalizr::OptionsParser.new(args, block)
+        self.send(:attr_accessor, 'normalize_deactivate') unless self.method_defined? 'normalize_deactivate'
 
         prepend Module.new {
           options.attributes.each do |method|
             define_method :"#{method}=" do |value|
-              condition_lambda = -> condition { Proc === condition ? instance_exec(&condition) : send(condition) }
+              unless normalize_deactivate
+                condition_lambda = -> condition { Proc === condition ? instance_exec(&condition) : send(condition) }
 
-              positive = options.positive_condition.all?(&condition_lambda)
-              negative = options.negative_condition.none?(&condition_lambda)
+                positive = options.positive_condition.all?(&condition_lambda)
+                negative = options.negative_condition.none?(&condition_lambda)
 
-              if positive && negative
-                value = Normalizr.normalize(value, *options.before)
-                value = Normalizr.normalize(value, *options.after) if options.after.any?
-              end
+                if positive && negative
+                  value = Normalizr.normalize(value, *options.before)
+                  value = Normalizr.normalize(value, *options.after) if options.after.any?
+                end
+              end  
 
               super(value)
             end
